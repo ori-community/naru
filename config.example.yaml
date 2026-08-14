@@ -1,0 +1,5 @@
+discord_bot_token:
+games:
+  - speedrun_api_token:
+    speedrun_game_id:
+    discord_channel_id: ""
