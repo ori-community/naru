@@ -3,6 +3,7 @@ use serenity::all::ChannelId;
 use serenity::builder::{CreateButton, CreateMessage};
 use serenity::futures::{StreamExt, TryStreamExt};
 use serenity::http::Http;
+use serenity::prelude::SerenityError;
 use serenity::utils::MessageBuilder;
 use speedrun_api::api::categories::Category;
 use speedrun_api::api::games::{Game, GameId};
@@ -16,7 +17,6 @@ use std::collections::HashSet;
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 use std::time::Duration;
-use serenity::prelude::SerenityError;
 use thiserror::Error;
 use tracing::info;
 
