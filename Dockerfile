@@ -15,4 +15,4 @@ ENV RUST_LOG=info
 COPY --from=build /app/target/release/naru /app/naru
 
 ENTRYPOINT ["/app/naru"]
-CMD []
+CMD ["-c", "/config.yaml"]
