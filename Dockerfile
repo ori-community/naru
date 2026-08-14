@@ -10,8 +10,6 @@ FROM gcr.io/distroless/static-debian13
 
 WORKDIR /app
 
-ENV RUST_LOG=info
-
 COPY --from=build /app/target/release/naru /app/naru
 
 ENTRYPOINT ["/app/naru"]
