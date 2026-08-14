@@ -1,3 +1,4 @@
+use crate::cli::CLI;
 use crate::config::GameConfig;
 use serenity::all::ChannelId;
 use serenity::builder::{CreateButton, CreateMessage};
@@ -83,19 +84,23 @@ pub async fn speedrun_poll_loop(
     );
 
     let mut known_runs: HashSet<HashableRun> = HashSet::new();
-    known_runs = get_new_runs(game.id.clone(), &known_runs, &client).await?;
+    let wait_duration = Duration::from_mins(10);
 
-    info!(
-        "{game_id}: Discovered {} known run(s) on startup",
-        known_runs.len()
-    );
+    if !CLI.post_submissions_on_startup {
+        known_runs = get_new_runs(game.id.clone(), &known_runs, &client).await?;
+
+        info!(
+            "{game_id}: Discovered {} pending run(s) on startup",
+            known_runs.len()
+        );
+
+        tokio::time::sleep(wait_duration).await;
+    }
 
     loop {
-        tokio::time::sleep(Duration::from_mins(10)).await;
-
         let new_runs = get_new_runs(game.id.clone(), &known_runs, &client).await?;
         if !new_runs.is_empty() {
-            info!("{game_id}: Discovered {} new run(s)", new_runs.len());
+            info!("{game_id}: Discovered {} pending run(s)", new_runs.len());
 
             for HashableRun(run) in &new_runs {
                 let category_endpoint = Category::builder()
@@ -149,5 +154,7 @@ pub async fn speedrun_poll_loop(
 
             known_runs.extend(new_runs);
         }
+
+        tokio::time::sleep(wait_duration).await;
     }
 }
