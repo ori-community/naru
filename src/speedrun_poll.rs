@@ -8,6 +8,7 @@ use serenity::prelude::SerenityError;
 use serenity::utils::MessageBuilder;
 use speedrun_api::api::categories::Category;
 use speedrun_api::api::games::{Game, GameId};
+use speedrun_api::api::levels::Level;
 use speedrun_api::api::runs::{RunStatus, Runs};
 use speedrun_api::api::users::User;
 use speedrun_api::api::{AsyncQuery, PagedEndpointExt};
@@ -18,7 +19,6 @@ use std::collections::HashSet;
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 use std::time::Duration;
-use speedrun_api::api::levels::Level;
 use thiserror::Error;
 use tracing::info;
 
@@ -111,13 +111,12 @@ pub async fn speedrun_poll_loop(
                 let category: types::Category = category_endpoint.query_async(&client).await?;
 
                 let level_name = if let Some(level_id) = run.level.clone() {
-                    let level_endpoint = Level::builder()
-                        .id(level_id)
-                        .build()
-                        .unwrap();
+                    let level_endpoint = Level::builder().id(level_id).build().unwrap();
                     let level: types::Level = level_endpoint.query_async(&client).await?;
                     Some(level.name)
-                } else { None };
+                } else {
+                    None
+                };
 
                 let mut player_names: Vec<String> = Vec::new();
                 for player in &run.players {
@@ -141,7 +140,7 @@ pub async fn speedrun_poll_loop(
                                 game.names.international,
                                 match level_name {
                                     None => "".to_string(),
-                                    Some(level_name) => format!(" - {level_name}")
+                                    Some(level_name) => format!(" - {level_name}"),
                                 },
                                 category.name
                             ))
