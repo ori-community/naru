@@ -18,6 +18,7 @@ use std::collections::HashSet;
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 use std::time::Duration;
+use speedrun_api::api::levels::Level;
 use thiserror::Error;
 use tracing::info;
 
@@ -109,6 +110,15 @@ pub async fn speedrun_poll_loop(
                     .unwrap();
                 let category: types::Category = category_endpoint.query_async(&client).await?;
 
+                let level_name = if let Some(level_id) = run.level.clone() {
+                    let level_endpoint = Level::builder()
+                        .id(level_id)
+                        .build()
+                        .unwrap();
+                    let level: types::Level = level_endpoint.query_async(&client).await?;
+                    Some(level.name)
+                } else { None };
+
                 let mut player_names: Vec<String> = Vec::new();
                 for player in &run.players {
                     player_names.push(match player {
@@ -127,8 +137,13 @@ pub async fn speedrun_poll_loop(
                             .push_line("**__New Submission__**")
                             .push_bold("Category: ")
                             .push_line_safe(format!(
-                                "{} - {}",
-                                game.names.international, category.name
+                                "{}{} - {}",
+                                game.names.international,
+                                match level_name {
+                                    None => "".to_string(),
+                                    Some(level_name) => format!(" - {level_name}")
+                                },
+                                category.name
                             ))
                             .push_bold("Runner: ")
                             .push_line_safe(player_names.join(", "))
