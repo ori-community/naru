@@ -9,29 +9,17 @@ use serenity::utils::MessageBuilder;
 use speedrun_api::api::categories::Category;
 use speedrun_api::api::games::{Game, GameId};
 use speedrun_api::api::levels::Level;
-use speedrun_api::api::runs::{RunStatus, Runs};
+use speedrun_api::api::runs::{RunId, RunStatus, Runs};
 use speedrun_api::api::users::User;
 use speedrun_api::api::{AsyncQuery, PagedEndpointExt};
 use speedrun_api::error::{RestError, SpeedrunApiError};
 use speedrun_api::types::{Player, Run};
 use speedrun_api::{SpeedrunApiBuilder, SpeedrunApiClientAsync, types};
-use std::collections::HashSet;
-use std::hash::{Hash, Hasher};
+use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 use thiserror::Error;
 use tracing::info;
-
-#[derive(PartialEq, Clone)]
-struct HashableRun<'a>(Run<'a>);
-
-impl<'a> Eq for HashableRun<'a> {}
-
-impl<'a> Hash for HashableRun<'a> {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.0.id.hash(state)
-    }
-}
 
 #[derive(Error, Debug)]
 pub enum Error {
@@ -45,25 +33,29 @@ pub enum Error {
 
 async fn get_new_runs<'a>(
     game_id: GameId<'_>,
-    known_runs: &HashSet<HashableRun<'a>>,
+    known_runs: &HashMap<RunId<'_>, Run<'_>>,
     client: &SpeedrunApiClientAsync,
-) -> Result<HashSet<HashableRun<'a>>, SpeedrunApiError> {
+) -> Result<HashMap<RunId<'a>, Run<'a>>, SpeedrunApiError> {
     let new_runs_endpoint = Runs::builder()
         .game(game_id)
         .status(RunStatus::New)
         .build()
         .unwrap();
 
-    let runs: HashSet<HashableRun> = new_runs_endpoint
+    let runs = new_runs_endpoint
         .stream::<Run, SpeedrunApiClientAsync>(&client)
         .take(100)
         .try_collect::<Vec<Run>>()
-        .await?
-        .into_iter()
-        .map(|r| HashableRun(r))
-        .collect();
+        .await?;
 
-    Ok(runs.difference(&known_runs).cloned().collect())
+    let mut new_runs: HashMap<RunId, Run> = HashMap::new();
+    for run in runs {
+        if !known_runs.contains_key(&run.id) {
+            new_runs.insert(run.id.clone(), run);
+        }
+    }
+
+    Ok(new_runs)
 }
 
 pub async fn speedrun_poll_loop(
@@ -84,7 +76,7 @@ pub async fn speedrun_poll_loop(
         game.names.international, game.abbreviation
     );
 
-    let mut known_runs: HashSet<HashableRun> = HashSet::new();
+    let mut known_runs: HashMap<RunId, Run> = HashMap::new();
     let wait_duration = Duration::from_mins(10);
 
     if !CLI.post_submissions_on_startup {
@@ -103,7 +95,7 @@ pub async fn speedrun_poll_loop(
         if !new_runs.is_empty() {
             info!("{game_id}: Discovered {} pending run(s)", new_runs.len());
 
-            for HashableRun(run) in &new_runs {
+            for (_, run) in &new_runs {
                 let category_endpoint = Category::builder()
                     .id(run.category.clone())
                     .build()
